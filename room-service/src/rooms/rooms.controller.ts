@@ -6,7 +6,19 @@ import { BlockRoomDto } from './dto/block-room.dto';
 @ApiTags('rooms')
 @Controller('rooms')
 export class RoomsController {
-  constructor(private readonly service: RoomsService) {}
+  constructor(private readonly service: RoomsService) { }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar todas las habitaciones activas' })
+  findAll() {
+    return this.service.findAll();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener habitación por ID' })
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(+id);
+  }
 
   @Get('availability')
   @ApiOperation({ summary: 'Verificar disponibilidad de habitación' })

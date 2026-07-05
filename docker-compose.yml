@@ -1,0 +1,135 @@
+version: '3.9'
+
+services:
+  # ── Bases de datos ────────────────────────────────────────────────
+  mysql-reservations:
+    image: mysql:8.0
+    container_name: mysql-reservations
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_reservations
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_reservations_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-rooms:
+    image: mysql:8.0
+    container_name: mysql-rooms
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_rooms
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_rooms_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-payments:
+    image: mysql:8.0
+    container_name: mysql-payments
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_payments
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_payments_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Servicios NestJS ──────────────────────────────────────────────
+  reservation-service:
+    build: ./reservation-service
+    container_name: reservation-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DB_HOST: mysql-reservations
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: db_reservations
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: hotel_soa_secret_2026
+      ROOM_SERVICE_URL: http://room-service:3002
+      PAYMENT_SERVICE_URL: http://payment-service:3003
+    depends_on:
+      mysql-reservations:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      room-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+
+  room-service:
+    build: ./room-service
+    container_name: room-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      DB_HOST: mysql-rooms
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: db_rooms
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql-rooms:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      DB_HOST: mysql-payments
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: root
+      DB_NAME: db_payments
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql-payments:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  mysql_reservations_data:
+  mysql_rooms_data:
+  mysql_payments_data:
